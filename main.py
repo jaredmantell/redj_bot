@@ -13,13 +13,13 @@ from util import AddSaveLoad
 dotenv.load_dotenv()
 
 TOKEN = os.environ["DISCORD_BOT_TOKEN"]
-GUILD_ID = os.environ["GUILD_ID"]
+GUILD_ID = int(os.environ["GUILD_ID"])
 THREAD_ONLY_CATEGORY_ID = int(os.environ["THREAD_ONLY_CATEGORY_ID"])
 
 bot = discord.Bot(intents=discord.Intents.all())
 
 # only ping the user if they asked
-def mention_(guild, uid: int, asked=None, always_ping = False):
+def mention_(guild, uid: int, asked=None, always_ping=False):
     user = discord.utils.get(guild.members, id=uid)
     if always_ping or user.id == asked:
         return user.mention
@@ -29,7 +29,6 @@ def mention_(guild, uid: int, asked=None, always_ping = False):
 @bot.event
 async def on_ready():
     print(f"We have logged in as {bot.user}")
-
 
 @bot.event
 async def on_message(message: discord.Message):
@@ -50,7 +49,6 @@ async def on_message(message: discord.Message):
             thread = await message.create_thread(name=name, auto_archive_duration=60)
             await thread.send(f"Thread created (thread only channel)")
 
-
 @bot.slash_command(guild_ids=[GUILD_ID])
 async def hello(ctx):
     await ctx.respond("Hello!")
@@ -70,7 +68,6 @@ class WeeklyPairings(AddSaveLoad):
     # people who are paired this week
     paired: List[Tuple[int, int]] = field(default_factory=list)
 
-
 # the `1on1` role is to be autopaired every week
 @bot.slash_command(guild_ids=[GUILD_ID])
 async def add_1_on_1(ctx: discord.Interaction):
@@ -78,6 +75,7 @@ async def add_1_on_1(ctx: discord.Interaction):
     role = discord.utils.get(ctx.guild.roles, name="1on1")
     await ctx.author.add_roles(role)
     await ctx.respond("You have signed up for 1on1s!")
+
 @bot.slash_command(guild_ids=[GUILD_ID])
 async def remove_1_on_1(ctx):
     role = discord.utils.get(ctx.guild.roles, name="1on1")
@@ -90,12 +88,12 @@ async def open_to_extra_1_on_1(ctx: discord.Interaction):
     role = discord.utils.get(ctx.guild.roles, name="1on1filler")
     await ctx.author.add_roles(role)
     await ctx.respond("You have signed up to be available for more 1on1s (for example when there are an odd number)!")
+
 @bot.slash_command(guild_ids=[GUILD_ID])
 async def remove_extra_1_on_1(ctx: discord.Interaction):
     role = discord.utils.get(ctx.guild.roles, name="1on1filler")
     await ctx.author.remove_roles(role)
     await ctx.respond("You have removed yourself from being available for extra 1on1s!")
-
 
 @bot.slash_command(guild_ids=[GUILD_ID])
 async def show_1on1_signed_up(ctx: discord.Interaction):
@@ -103,8 +101,6 @@ async def show_1on1_signed_up(ctx: discord.Interaction):
     role = discord.utils.get(ctx.guild.roles, name="1on1")
     users = [member.display_name for member in ctx.guild.members if role in member.roles]
     await ctx.respond(f"Users who will get pinged weekly to remind to sign up for 1-on-1s {', '.join(users)}")
-
-
 
 async def display_pairs(guild, pairings: WeeklyPairings, user_asked: Optional[int] = None, always_ping=False, ctx=None, channel: discord.TextChannel = None):
     if not (bool(ctx) ^ bool(channel)):
@@ -128,8 +124,6 @@ async def display_pairs(guild, pairings: WeeklyPairings, user_asked: Optional[in
         await channel.send(s)
     else:
         assert False # we need ctx or channel
-
-
 
 @bot.slash_command(guild_ids=[GUILD_ID])
 async def show_1on1_pairs(ctx: discord.Interaction):
@@ -182,7 +176,6 @@ async def pair_1on1s(ctx: discord.Interaction):
     wps = await pair_weekly_users(ctx.guild)
     await display_pairs(ctx.guild, wps, ctx=ctx, always_ping=True)
 
-
 def next_friday():
     now = datetime.now()
     TIME_ON_FRIDAY_TO_RUN = 15 # UTC, so we don't wake up Americas
@@ -203,18 +196,17 @@ current_messages: Dict[discord.Guild, int] = {}
 
 async def weekly_task():
     await bot.wait_until_ready()
-    for guild in bot.guilds:
-        while not bot.is_closed():
-            next_run = next_friday()
-            amt_to_sleep = (next_run - datetime.now()).total_seconds()
-            if amt_to_sleep < 30 * 60: # this could get triggered in some weird timezone/daylight savings situations, don't start bot <30mins before TIME_ON_FRIDAY_TO_RUN on friday
-                continue
-            await asyncio.sleep(amt_to_sleep)
+    while not bot.is_closed():
+        next_run = next_friday()
+        amt_to_sleep = (next_run - datetime.now()).total_seconds()
+        if amt_to_sleep < 30 * 60:  # this could get triggered in some weird timezone/daylight savings situations, don't start bot <30mins before TIME_ON_FRIDAY_TO_RUN on friday
+            continue
+        await asyncio.sleep(amt_to_sleep)
+        for guild in bot.guilds:
             # get the 1-1s channel
             wps = await pair_weekly_users(guild)
             chan = one_on_one_chan(guild)
             await display_pairs(guild, wps, always_ping=True, channel=chan)
-
 
 bot.loop.create_task(weekly_task())
 bot.run(TOKEN)
